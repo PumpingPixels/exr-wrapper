@@ -342,7 +342,7 @@ def main(kwargs):
 if __name__ == "__main__":
     import argparse
     p = argparse.ArgumentParser(
-        description='Tool for applying common operations to increase usability of OpenEXR files.'
+        description='Tool for processing OpenEXR image files to improve their usability in VFX workflows.'
                     'By default, the following operations will be performed:'
                     'Auto-Crop: Shrinks data window (= bounding box) to non-black pixels'
                     'Create multi-part exr: Splits channels into subimages based on their layer names'
