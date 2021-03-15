@@ -131,20 +131,24 @@ class Manager(QtCore.QObject):
         if not line_edit:
             line_edit = self.sender()
         path = line_edit.text()
-        path, first, last = find_sequence(path)
-        line_edit.setText(path)
-        if 'input' in line_edit.objectName():
-            self.window.pushButton_rewrap.setEnabled(bool(path))
-            if first and last:
-                self.window.findChild(QtWidgets.QSpinBox, 'spinBox_first').setValue(first)
-                self.window.findChild(QtWidgets.QSpinBox, 'spinBox_last').setValue(last)
-            else:
-                self.window.findChild(QtWidgets.QSpinBox, 'spinBox_first').setValue(0)
-                self.window.findChild(QtWidgets.QSpinBox, 'spinBox_last').setValue(0)
-            self.window.progressBar.setValue(0)
-        elif 'output' in line_edit.objectName():
-            self.window.checkBox_keep_backup.setEnabled(not bool(path))
-            self.window.checkBox_overwrite.setEnabled(bool(path))
+        if path.split('.')[-1] in ['exr', 'EXR'] and not os.path.isdir(path):
+            path, first, last = find_sequence(path)
+            line_edit.setText(path)
+            if 'input' in line_edit.objectName():
+                self.window.pushButton_rewrap.setEnabled(bool(path))
+                if first and last:
+                    self.window.findChild(QtWidgets.QSpinBox, 'spinBox_first').setValue(first)
+                    self.window.findChild(QtWidgets.QSpinBox, 'spinBox_last').setValue(last)
+                else:
+                    self.window.findChild(QtWidgets.QSpinBox, 'spinBox_first').setValue(0)
+                    self.window.findChild(QtWidgets.QSpinBox, 'spinBox_last').setValue(0)
+                self.window.progressBar.setValue(0)
+            elif 'output' in line_edit.objectName():
+                self.window.checkBox_keep_backup.setEnabled(not bool(path))
+                self.window.checkBox_overwrite.setEnabled(bool(path))
+        else:
+            line_edit.clear()
+            self.window.plainTextEdit_log.appendPlainText('Input must be an OpenEXR file or sequence.')
 
 
     def file_dialog(self):

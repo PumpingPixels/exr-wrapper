@@ -96,6 +96,8 @@ def find_files(input_path, framerange=None):
     :return: array of single file paths
     """
     files = []
+    if '%' not in input_path:
+        return [input_path]
     if framerange:
         for part_range in framerange.split(','):
             if '-' in part_range:
@@ -281,15 +283,22 @@ def rewrap(src, dst, autocrop=False, multipart=False, rm_manifest=False, fix_cha
     return True
 
 
-def main(kwargs):
-    input_path = kwargs['input']
-    output_path = kwargs.get('output')
-    overwrite = kwargs.get('overwrite')
-    dryrun = kwargs.get('dryrun', False)
-    framerange = kwargs.get('framerange')
+def main(arguments):
+    if not arguments['single_file']:
+        arguments['input'] = detect_sequence(arguments['input'])
+        if arguments.get('output'):
+            arguments['output'] = detect_sequence(arguments['output'])
+    input_path = arguments['input']
+    output_path = arguments.get('output')
+    overwrite = arguments.get('overwrite')
+    dryrun = arguments.get('dryrun', False)
+    framerange = arguments.get('framerange')
     if dryrun:
         print('Doing dry-run.')
     files = find_files(input_path, framerange)
+    if not files:
+        print('No files to process')
+        return
     if not output_path:
         backup_dir, prev_backup = bu_dir(input_path)
     i = 0
@@ -311,28 +320,28 @@ def main(kwargs):
                     filename=os.path.basename(src)))
                 continue
         print('Re-wrapping {src} to {dst}'.format(src=src, dst=dst))
-        if kwargs.get('dryrun'):
+        if arguments.get('dryrun'):
             continue
-        if not kwargs.get('output'):
-            if kwargs.get('verbose'):
+        if not arguments.get('output'):
+            if arguments.get('verbose'):
                 print('Moving {orig} ---> {bak} for backup'.format(bak=src, orig=dst))
             shutil.move(dst, src)
         try:
-            ok = rewrap(src, dst, **kwargs)
+            ok = rewrap(src, dst, **arguments)
         except Exception as e:
-            if kwargs.get('verbose'):
+            if arguments.get('verbose'):
                 traceback.print_exc()
             ok = False
-        if not ok and not kwargs.get('output'):
+        if not ok and not arguments.get('output'):
             print('Operation failed for {filename}, restoring backup file.'.format(
                 filename=os.path.basename(dst)))
             shutil.move(src, dst)
-        elif kwargs.get('no_backup'):
+        elif arguments.get('no_backup'):
             os.remove(src)
         i += 1
         progress = i * 100 / len(files)
         print("Progress: {}%".format(progress))
-    if kwargs.get('no_backup') and not prev_backup:
+    if arguments.get('no_backup') and not prev_backup:
         try:
             os.removedirs(backup_dir)
         except:
@@ -380,8 +389,7 @@ if __name__ == "__main__":
         import mainwindow
         mainwindow.main()
     else:
-        if not arguments['single_file']:
-            arguments['input'] = detect_sequence(arguments['input'])
-            if arguments.get('output'):
-                arguments['output'] = detect_sequence(arguments['output'])
-        main(arguments)
+        if arguments['input'].split('.')[-1] in ['exr', 'EXR'] and not os.path.isdir(arguments['input']):
+            main(arguments)
+        else:
+            print('Input must be an OpenEXR file or sequence.')
