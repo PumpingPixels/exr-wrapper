@@ -27,6 +27,8 @@ option.
 
 `python src/mainwindow.py` launches a minimal UI which offers the same options like the CLI interface.
 
+![GUI-Layout](/docs/gui.png)
+
 ## Requirements
 
 * [OpenImageIO](https://github.com/OpenImageIO/oiio/blob/master/INSTALL.md)
