@@ -31,6 +31,6 @@ option.
 
 ## Requirements
 
-* [OpenImageIO](https://github.com/OpenImageIO/oiio/blob/master/INSTALL.md)
+* [OpenImageIO](https://github.com/OpenImageIO/oiio/blob/master/INSTALL.md) >= 2.2.6 (build with OpenEXR >= 2.0)
 * numpy
 * PySide2 (for GUI-usage only)

@@ -213,7 +213,10 @@ def rewrap(src, dst, autocrop=False, multipart=False, rm_manifest=False, fix_cha
         if properties['rm_manifest']:
             for attribute in spec.extra_attribs:
                 if 'manifest' in attribute.name:
-                    spec.erase_attribute(attribute.name)
+                    try:
+                        spec.erase_attribute(attribute.name)
+                    except TypeError as e:
+                        raise RuntimeWarning('Error while removing manifest')
         if properties['compression']:
             spec["Compression"] = compression.strip("'")
         return spec

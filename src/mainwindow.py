@@ -69,7 +69,7 @@ class WrapperThread(QtCore.QThread):
             try:
                 ok = rewrap(src, dst, **kwargs)
             except Exception as e:
-                traceback.self.message.emit_exc()
+                traceback.print_exc()
                 ok = False
             if not ok and not kwargs.get('output'):
                 self.message.emit('Operation failed for {filename}, restoring backup file.'.format(
