@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>587</width>
-    <height>629</height>
+    <height>702</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -133,12 +133,12 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="checkBox_rm_manifest">
+        <widget class="QCheckBox" name="checkBox_ex_manifest">
          <property name="toolTip">
-          <string>Removes all cryptomatte manifests from the metadata to reduce filesize and increase IO performance.</string>
+          <string>Removes all cryptomatte manifests from the metadata to reduce filesize and increase IO performance. The manifest will be written to a sidecar file which cominbes the manifests for all of the sequence's frames.</string>
          </property>
          <property name="text">
-          <string>Remove cryptomatte manifest</string>
+          <string>Extract cryptomatte manifest to sidecar file</string>
          </property>
         </widget>
        </item>
@@ -359,7 +359,7 @@
      <x>0</x>
      <y>0</y>
      <width>587</width>
-     <height>22</height>
+     <height>28</height>
     </rect>
    </property>
   </widget>

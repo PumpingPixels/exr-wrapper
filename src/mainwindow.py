@@ -172,7 +172,7 @@ class Manager(QtCore.QObject):
         properties['multipart'] = self.window.checkBox_multipart.isChecked()
         properties['autocrop'] = self.window.checkBox_autocrop.isChecked()
         properties['fix_channels'] = self.window.checkBox_fix_channels.isChecked()
-        properties['rm_manifest'] = self.window.checkBox_rm_manifest.isChecked()
+        properties['ex_manifest'] = self.window.checkBox_ex_manifest.isChecked()
         properties['no_backup'] = not self.window.checkBox_keep_backup.isChecked()
         properties['overwrite'] = self.window.checkBox_overwrite.isChecked()
         properties['compression'] = self.window.comboBox_compression.currentText()

@@ -113,6 +113,57 @@ def find_files(input_path, framerange=None):
     return files
 
 
+def extract_manifest(spec, image_path):
+    """
+    Extract cryptomatte manifest from metadata to sidecar file.
+    :param spec: oiio.ImageSpec object containing manifest metadata
+    :param image_path: images's path to derive sidecar's path from
+    :return:
+    """
+    cryptomattes = {}
+    for attribute in spec.extra_attribs:
+        attrib_split = attribute.name.split('/')
+        if len(attrib_split) == 3 and attrib_split[0] == 'cryptomatte':
+            id = attrib_split[1]
+            cryptomattes[id] = cryptomattes.get(id, {})
+            if attrib_split[2] == 'name':
+                cryptomattes[id]['name'] = attribute.value
+            if attrib_split[2] == 'manifest':
+                cryptomattes[id]['manifest'] = attribute.value
+    for id in cryptomattes:
+        crypto_name = cryptomattes[id]['name']
+        manifest_path = re.sub(r'(\.\d{3,8})?\.\w{3}', '_{}.json'.format(crypto_name), image_path)
+        manifest_data = cryptomattes[id].get('manifest')
+        if manifest_data:
+            try:
+                spec.erase_attribute('cryptomatte/{id}/manifest'.format(id=id))
+            except TypeError as e:
+                raise RuntimeWarning('Error while removing manifest')
+            spec.attribute('cryptomatte/{id}/manif_file'.format(id=id), os.path.basename(manifest_path))
+            import json
+            manifest_data = json.loads(manifest_data)
+            try:
+                with open(manifest_path) as json_file:
+                    existing_data = json.load(json_file)
+                    manifest_data.update(existing_data)
+            except IOError as e:
+                pass
+            with open(manifest_path, 'w') as manifest_file:
+                json.dump(manifest_data, manifest_file)
+
+
+def rename_channels(src_channel_names, fix=True, strip=False):
+    new_channel_names = []
+    for channel_name in src_channel_names:
+        if fix and 'depth.z' in channel_name:
+            print('Correcting channel name: {}'.format(channel_name))
+            channel_name = 'depth.Z'
+        if strip:
+            channel_name = channel_name.split('.', 1)[-1]
+        new_channel_names.append(channel_name)
+    return new_channel_names
+
+
 def split_subimages(image_in, properties):
     """
     Splits an image into various subimages based on layer names
@@ -155,8 +206,6 @@ def split_subimages(image_in, properties):
             # copy metadata for the first subimage
             if properties['sub_start'] == 0:
                 for i in range(len(image_in.nativespec().extra_attribs)):
-                    if properties['rm_manifest'] and 'manifest' in image_in.nativespec().extra_attribs[i].name:
-                        continue
                     if image_in.nativespec().extra_attribs[i].type in ['string', 'int', 'float']:
                         subimage_spec.attribute(image_in.nativespec().extra_attribs[i].name,
                                                 image_in.nativespec().extra_attribs[i].value)
@@ -164,21 +213,14 @@ def split_subimages(image_in, properties):
                         subimage_spec.attribute(image_in.nativespec().extra_attribs[i].name,
                                                 image_in.nativespec().extra_attribs[i].type,
                                                 image_in.nativespec().extra_attribs[i].value)
+                if properties['ex_manifest']:
+                    extract_manifest(subimage_spec, properties['dst'])
             if properties.get('compression'):
                 subimage_spec.attribute('compression', properties['compression'].strip("'"))
             else:
                 subimage_spec.attribute('compression', image_in.nativespec().getattribute('compression'))
             src_channel_names = image_in.nativespec().channelnames[properties['sub_start']:properties['sub_end'] + 1]
-            if properties.get('fix_channels'):
-                dst_channel_names = []
-                for channel_name in src_channel_names:
-                    if 'depth.z' in channel_name:
-                        print('Correcting channel name: {}'.format(channel_name))
-                        channel_name = 'depth.Z'
-                    dst_channel_names.append(channel_name)
-            else:
-                dst_channel_names = src_channel_names
-            subimage_spec.channelnames = dst_channel_names
+            subimage_spec.channelnames = rename_channels(src_channel_names, fix=properties.get('fix'), strip=True)
             subimage_spec.attribute('name', properties['recent_sub'])
             properties['sub_names'].append(properties['recent_sub'])
             properties['sub_specs'].append(subimage_spec)
@@ -195,14 +237,14 @@ def split_subimages(image_in, properties):
     return properties
 
 
-def rewrap(src, dst, autocrop=False, multipart=False, rm_manifest=False, fix_channels=False, compression=None,
+def rewrap(src, dst, autocrop=False, multipart=False, ex_manifest=False, fix_channels=False, compression=None,
            verbose=False, *args, **kwargs):
     """
     :param src: source image
     :param dst: destination image
     :param autocrop: set data window to non-empty pixel in rgb
     :param multipart: split subimages
-    :param rm_manifest: prune exr metadata
+    :param ex_manifest: prune exr metadata
     :param fix_channels: make channels names Nuke digestible (e.g. depth.Z)
     :param compression: change compression, keeps the current one if None given
     :param verbose: write verbose information to the terminal
@@ -210,13 +252,8 @@ def rewrap(src, dst, autocrop=False, multipart=False, rm_manifest=False, fix_cha
     """
     def update_specs(spec, properties):
         spec.roi = properties['roi']
-        if properties['rm_manifest']:
-            for attribute in spec.extra_attribs:
-                if 'manifest' in attribute.name:
-                    try:
-                        spec.erase_attribute(attribute.name)
-                    except TypeError as e:
-                        raise RuntimeWarning('Error while removing manifest')
+        if properties['ex_manifest']:
+            extract_manifest(spec, dst)
         if properties['compression']:
             spec["Compression"] = compression.strip("'")
         return spec
@@ -276,6 +313,8 @@ def rewrap(src, dst, autocrop=False, multipart=False, rm_manifest=False, fix_cha
     else:
         spec = image_in.nativespec()
         update_specs(spec, properties)
+        src_channel_names = spec.channelnames
+        spec.channelnames = rename_channels(src_channel_names, fix=properties.get('fix'))
         ok = image_out.open(dst, spec)
         if not ok:
             print('OIIO error while opening {} for writing image: {}'.format(dst, image_out.geterror()))
@@ -375,8 +414,8 @@ if __name__ == "__main__":
                    help=u"Skip channel name fix.")
     p.add_argument("-c", "--compression",
                    help=u"Override compression, if not specified the compression of the input image will be kept.")
-    p.add_argument("-r", "--rm_manifest", action="store_true",
-                   help=u"Remove cryptomatte manifests from metadata")
+    p.add_argument("-r", "--ex_manifest", action="store_true",
+                   help=u"Extract cryptomatte manifest to sidecar file.")
     p.add_argument("-s", "--single_file", action="store_true",
                    help=u"Skip sequence detection, only work on specified input file.")
     p.add_argument("-y", "--overwrite", action="store_true",
