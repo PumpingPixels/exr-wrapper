@@ -11,7 +11,7 @@ The following processing operations are available:
 * Auto-Crop: Shrinks data window (= bounding box) to non-black pixel
 * Create multi-part exr: Splits channels into subimages based on their layer names
 * Fix channel names: Rename channel names which could cause conflicts in Nuke (depth.z to depth.Z)
-* Remove cryptomatte manifests from metadata to decrease file-size and improve file-IO
+* Remove cryptomatte manifests from metadata to reduce filesize and increase IO performance. The manifest will be written to a sidecar file which cominbes the manifests for all of the sequence's frames.
 * Change compression mode
 
 ## Usage
