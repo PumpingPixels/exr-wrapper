@@ -135,7 +135,7 @@
        <item>
         <widget class="QCheckBox" name="checkBox_ex_manifest">
          <property name="toolTip">
-          <string>Removes cryptomatte manifests from metadata to reduce filesize and increase IO performance. The manifest will be written to a sidecar file which cominbes the manifests for all of the sequence's frames.</string>
+          <string>Removes cryptomatte manifests from metadata to reduce filesize and increase IO performance. The manifest will be written to a sidecar file which cominbes the manifests for all the sequence's frames.</string>
          </property>
          <property name="text">
           <string>Extract cryptomatte manifest to sidecar file</string>
@@ -154,7 +154,7 @@
          <item>
           <widget class="QComboBox" name="comboBox_compression">
            <property name="toolTip">
-            <string>Change or the compression mode or keep the existing one.</string>
+            <string>Change the compression mode or keep the existing one.</string>
            </property>
            <property name="currentIndex">
             <number>0</number>
@@ -359,7 +359,7 @@
      <x>0</x>
      <y>0</y>
      <width>587</width>
-     <height>28</height>
+     <height>22</height>
     </rect>
    </property>
   </widget>
