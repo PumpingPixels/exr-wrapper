@@ -113,11 +113,12 @@ def find_files(input_path, framerange=None):
     return files
 
 
-def extract_manifest(spec, image_path):
+def cryptomatte_metadata(spec, image_path, extract):
     """
-    Extract cryptomatte manifest from metadata to sidecar file.
+    Correct cryptomatte channelnames and extract manifest from metadata to sidecar file.
     :param spec: oiio.ImageSpec object containing manifest metadata
     :param image_path: images's path to derive sidecar's path from
+    :param extract: extract manifest if true
     :return:
     """
     cryptomattes = {}
@@ -127,9 +128,12 @@ def extract_manifest(spec, image_path):
             id = attrib_split[1]
             cryptomattes[id] = cryptomattes.get(id, {})
             if attrib_split[2] == 'name':
-                cryptomattes[id]['name'] = attribute.value
+                cryptomattes[id]['name'] = attribute.value.rsplit('.',1)[-1]
+                spec.attribute('cryptomatte/{id}/name'.format(id=id), cryptomattes[id]['name'])
             if attrib_split[2] == 'manifest':
                 cryptomattes[id]['manifest'] = attribute.value
+    if not extract:
+        return
     for id in cryptomattes:
         crypto_name = cryptomattes[id]['name']
         manifest_path = re.sub(r'(\.\d{3,8})?\.\w{3}', '_{}.json'.format(crypto_name), image_path)
@@ -152,14 +156,17 @@ def extract_manifest(spec, image_path):
                 json.dump(manifest_data, manifest_file)
 
 
-def rename_channels(src_channel_names, fix=True, strip=False):
+def rename_channels(src_channel_names, fix=True):
     new_channel_names = []
     for channel_name in src_channel_names:
-        if fix and 'depth.z' in channel_name:
-            print('Correcting channel name: {}'.format(channel_name))
-            channel_name = 'depth.Z'
-        if strip:
+        if fix:
             channel_name = channel_name.split('.', 1)[-1]
+            if 'depth.z' in channel_name.lower():
+                print('Correcting channel name: {}'.format(channel_name))
+                channel_name = 'depth.Z'
+            if channel_name.split('.')[0] == 'Combined':
+                print('Correcting channel name: {}'.format(channel_name))
+                channel_name = 'rgba.{}'.format(channel_name.split('.',1)[-1])
         new_channel_names.append(channel_name)
     return new_channel_names
 
@@ -177,7 +184,7 @@ def split_subimages(image_in, properties):
         if channel_name in ['R', 'G', 'B', 'A']:
             properties['current_sub'] = 'rgba'
         else:
-            properties['current_sub'] = channel_name.split('.')[0]
+            properties['current_sub'] = channel_name.rsplit('.',1)[0]
         # new subimage is found
         if (properties['recent_sub'] and properties['current_sub'] != properties[
             'recent_sub']) or channelindex + 1 == image_in.nativespec().nchannels:
@@ -213,16 +220,18 @@ def split_subimages(image_in, properties):
                         subimage_spec.attribute(image_in.nativespec().extra_attribs[i].name,
                                                 image_in.nativespec().extra_attribs[i].type,
                                                 image_in.nativespec().extra_attribs[i].value)
-                if properties['ex_manifest']:
-                    extract_manifest(subimage_spec, properties['dst'])
+                cryptomatte_metadata(subimage_spec, properties['dst'], properties['ex_manifest'])
             if properties.get('compression'):
                 subimage_spec.attribute('compression', properties['compression'].strip("'"))
             else:
                 subimage_spec.attribute('compression', image_in.nativespec().getattribute('compression'))
             src_channel_names = image_in.nativespec().channelnames[properties['sub_start']:properties['sub_end'] + 1]
-            subimage_spec.channelnames = rename_channels(src_channel_names, fix=properties.get('fix'), strip=True)
-            subimage_spec.attribute('name', properties['recent_sub'])
-            properties['sub_names'].append(properties['recent_sub'])
+            fix = properties.get('fix_channels')
+            renamed_channels = rename_channels(src_channel_names, fix=fix)
+            subimage_spec.channelnames = renamed_channels
+            layer_name = renamed_channels[0].split('.',1)[0]
+            subimage_spec.attribute('name', layer_name)
+            properties['sub_names'].append(layer_name)
             properties['sub_specs'].append(subimage_spec)
             out_buffer = oiio.ImageBufAlgo.channels(image_in, tuple(src_channel_names))
             out_buffer = oiio.ImageBufAlgo.cut(out_buffer, properties['roi'])
@@ -252,8 +261,7 @@ def rewrap(src, dst, autocrop=False, multipart=False, ex_manifest=False, fix_cha
     """
     def update_specs(spec, properties):
         spec.roi = properties['roi']
-        if properties['ex_manifest']:
-            extract_manifest(spec, dst)
+        cryptomatte_metadata(spec, dst, properties['ex_manifest'])
         if properties['compression']:
             spec["Compression"] = compression.strip("'")
         return spec
